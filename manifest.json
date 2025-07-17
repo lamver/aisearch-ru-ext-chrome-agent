@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "AiSearch Chrome Agent",
+    "version": "1.0",
+    "background": {
+        "service_worker": "background.js"
+    },
+    "oauth2": {
+        "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/documents"
+        ]
+    },
+    "description": "AiSearch Chrome Agent",
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "logo_ai_search_16_16_tr.png",
+            "48": "logo_ai_search_48_48_tr.png",
+            "128": "logo_ai_search_128_128_tr.png"
+        }
+    },
+    "permissions": ["activeTab", "scripting", "tabs", "storage"],
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>", "https://docs.google.com/document/d/*"],
+            "js": ["content.js"]
+        }
+    ]
+}

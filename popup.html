@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AiSearch RU Chrome agent</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 10px; width: 400px; min-height: 100px; }
+        button { padding: 5px 10px; }
+    </style>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+</head>
+<body data-bs-theme="dark">
+<nav class="navbar bg-body-tertiary">
+    <div class="container">
+        <a class="navbar-brand" href="#">
+            <img src="/images/logo_ai_search_30_30.png" alt="Bootstrap" width="30" height="30">
+        </a>
+        AiSearch RU Chrome agent
+    </div>
+</nav>
+<div class="container">
+    <button style="display: none;" id="clickMe" class="btn btn-default">Кликни меня</button>
+    <div class="row p-2" style="border-top: 1px solid grey;">
+        <div class="col-8">
+            Авторизация
+        </div>
+        <div class="col-4">
+            <span id="auth-state"></span>
+            <span id="authCheck">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
+                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
+            </svg>
+            </span>
+        </div>
+    </div>
+    <div class="row p-2" style="border-top: 1px solid grey; border-bottom: 1px solid grey;">
+        <div class="col-10">
+            Активировать на этом сайте
+        </div>
+        <div class="col-2">
+            <div class="form-check form-switch">
+            <input type="checkbox" class="form-check-input" checked id="enable-checkbox">
+            </div>
+        </div>
+    </div>
+    <div style="display: none;" id="checkData"></div>
+    <div class="mt-2">
+        <span class="text-body-secondary">
+            <a target="_blank" href="https://aisearch.ru/login" class="btn btn-link center-block">Личный кабинет</a>
+        </span>
+    </div>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>
