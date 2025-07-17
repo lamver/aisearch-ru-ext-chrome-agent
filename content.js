@@ -140,12 +140,12 @@ function initAgent() {
     }
 
     function openAiScenarioButtons() {
-        alert('scenario buttons');
+        //alert('scenario buttons');
 
         const selectedText = window.getSelection().toString();
         if (selectedText) {
             // Можно обработать выделенный текст
-            alert(selectedText);
+            //alert(selectedText);
         } else {
             // alert('Текст не выделен');
         }
@@ -256,7 +256,7 @@ white;
                 resultDiv.textContent = 'Пожалуйста, введите запрос.';
                 return;
             }
-alert(query);
+
             chrome.runtime.sendMessage({ type: "task", prompt: pageText + "\n" + query }, response => {
                 if (response && response.error) {
                     console.error("Error response:", response.error);
