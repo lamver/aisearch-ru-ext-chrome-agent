@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "AiSearch Chrome Agent",
+    "name": "AiSearch Chrome Helper",
     "version": "1.0",
     "background": {
         "service_worker": "background.js"
@@ -11,7 +11,7 @@
             "https://www.googleapis.com/auth/documents"
         ]
     },
-    "description": "AiSearch Chrome Agent",
+    "description": "Ай помощник для работы в браузерах, для быстрого и качественного создания текстов с помощью искусственного интеллекта.",
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
@@ -20,11 +20,5 @@
             "128": "logo_ai_search_128_128_tr.png"
         }
     },
-    "permissions": ["activeTab", "scripting", "tabs", "storage"],
-    "content_scripts": [
-        {
-            "matches": ["<all_urls>", "https://docs.google.com/document/d/*"],
-            "js": ["content.js"]
-        }
-    ]
+    "permissions": ["activeTab", "scripting", "storage"]
 }

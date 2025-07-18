@@ -13,8 +13,8 @@ document.getElementById('clickMe').addEventListener('click', () => {
                     return;
                 }
                 const pageHtml = results[0].result;
-                console.log('HTML страницы:', pageHtml);
-                alert(pageHtml);
+                //console.log('HTML страницы:', pageHtml);
+                //alert(pageHtml);
             }
         );
     });
@@ -22,8 +22,8 @@ document.getElementById('clickMe').addEventListener('click', () => {
     // Получить адрес текущей вкладки
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const currentTab = tabs[0];
-        console.log('URL текущей вкладки:', currentTab.url);
-        alert(currentTab.url);
+        //console.log('URL текущей вкладки:', currentTab.url);
+        //alert(currentTab.url);
         //alert(currentTab.html);
     });
 });
@@ -42,7 +42,6 @@ function authCheck() {
             return response.json(); // или response.text(), в зависимости от формата ответа
         })
         .then(data => {
-            console.log(data);
             let authState = false;
             if (data.auth) {
                 authState = true;
@@ -70,7 +69,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentTab = tabs[0];
         const url = new URL(currentTab.url);
         const domain = url.hostname;
-
+        chrome.scripting.executeScript({
+            target: {tabId: currentTab.id},
+            files: ['content.js']
+        });
         // Проверяем хранится ли разрешение для текущего домена
         chrome.storage.sync.get([domain], (result) => {
             enableCheckbox.checked = result[domain] || false;
