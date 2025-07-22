@@ -73,7 +73,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Проверяем хранится ли разрешение для текущего домена
         chrome.storage.sync.get([domain], (result) => {
-            enableCheckbox.checked = result[domain] || false;
+            if (result.hasOwnProperty(domain)) {
+                enableCheckbox.checked = result[domain];
+            } else {
+                enableCheckbox.checked = true; // default value
+            }
         });
 
         enableCheckbox.addEventListener('change', (event) => {

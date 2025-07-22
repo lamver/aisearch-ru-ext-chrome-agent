@@ -2,14 +2,17 @@
 
 chrome.storage.sync.get([window.location.hostname], (result) => {
     const isEnabled = result[window.location.hostname];
-    if (isEnabled) {
-        // Ваши скрипты для активации функциональности
-        console.log(`AiSearch активирован для ${window.location.hostname}`);
-        initAgent();
+
+    if (isEnabled === false) {
+        console.log(`AiSearch деактивирован 2 для ${window.location.hostname}`);
+        return;
+
         // Ваш основной код здесь
-    } else {
-        console.log(`AiSearch деактивирован для ${window.location.hostname}`);
     }
+
+    // Ваши скрипты для активации функциональности
+    console.log(`AiSearch активирован для ${window.location.hostname}`);
+    initAgent();
 });
 
 function initAgent() {
@@ -18,6 +21,12 @@ function initAgent() {
     const uniqueIdAiSearchWidgetFormEditableContent = `ai-search-form-editable-content-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const uniqueIdAiSearchWidgetFormPromptTextArea = `ai-search-form-prompt-textarea-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const uniqueIdAiSearchWidgetFormMainBtn = `ai-search-form-main-btn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const uniqueIdAiSearchWidgetResultDiv = `ai-search-form-result-div-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const uniqueIdAiSearchWidgetResultOperation = `ai-search-form-result-operation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Новые id для кнопок "Вставить" и "Скопировать"
+    const uniqueIdAiSearchBtnInsert = `ai-search-btn-insert-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const uniqueIdAiSearchBtnCopy = `ai-search-btn-copy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     let lastInputElmInitExecuteTask= null;
     let lastSelectedEditableElement = null;
@@ -231,7 +240,13 @@ white;
       <button class="closeBtn" id="aisearchWidgetCloseBtn" title="Закрыть">&times;</button>
       <textarea id="${uniqueIdAiSearchWidgetFormPromptTextArea}" placeholder="Введите запрос..."></textarea>
       <button id="${uniqueIdAiSearchWidgetFormMainBtn}">Делай</button>
-      <div id="aiSearchResult" style="margin-top:10px; font-size: 13px;"></div>
+      <div id="${uniqueIdAiSearchWidgetResultOperation}" style="display: none;">
+        <div id="${uniqueIdAiSearchWidgetResultDiv}" contenteditable="true" style="margin-top:10px; font-size: 16px; background-color: white; color: black; padding: 5px;"></div>
+        <div style="margin-top: 10px;">
+          <button id="${uniqueIdAiSearchBtnInsert}">Вставить</button>
+          <button id="${uniqueIdAiSearchBtnCopy}">Скопировать</button>
+        </div>
+      </div>
     </div>
   `;
         // Вставляем шаблон в тело страницы
@@ -241,7 +256,7 @@ white;
         const widget = document.getElementById(uniqueIdAiSearchWidgetFormEditableContent);
         const input = widget.querySelector('textarea');
         const mainButton = widget.querySelector('#'+uniqueIdAiSearchWidgetFormMainBtn);
-        const resultDiv = widget.querySelector('#aiSearchResult');
+        const resultDiv = document.getElementById(uniqueIdAiSearchWidgetResultDiv);
 
         mainButton.addEventListener('click', () => {
 
@@ -276,6 +291,41 @@ white;
                 widget.style.display = 'none';
             }
         });
+
+        // Обработчик кнопки "Вставить"
+        const insertButton = document.getElementById(uniqueIdAiSearchBtnInsert);
+        insertButton.addEventListener('click', () => {
+            tryInsert();
+        });
+
+        // Обработчик кнопки "Скопировать"
+        const copyButton = document.getElementById(uniqueIdAiSearchBtnCopy);
+        copyButton.addEventListener('click', () => {
+            const textToCopy = resultDiv.innerText || resultDiv.textContent;
+            if (!textToCopy) return;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                // Используем Clipboard API
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    console.log('Текст скопирован в буфер обмена');
+                }).catch(err => {
+                    console.error('Ошибка при копировании:', err);
+                });
+            } else {
+                // Фолбек для старых браузеров
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    console.log('Текст скопирован в буфер обмена (fallback)');
+                } catch (err) {
+                    console.error('Ошибка при копировании (fallback):', err);
+                }
+                document.body.removeChild(textarea);
+            }
+        });
     }
 
     // Запускаем вставку шаблона после загрузки страницы
@@ -285,34 +335,42 @@ white;
         insertTemplate();
     }
 
+    const resultBlockDiv = document.getElementById(uniqueIdAiSearchWidgetResultDiv);
+    const resultBlockOperation= document.getElementById(uniqueIdAiSearchWidgetResultOperation);
+
     let accumulateResponseContent = '';
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        console.log('tyhyt');
+
         if (message.type === 'data') {
-            console.log("Received data chunk:", message.data);
-            //console.log(lastInputElmInitExecuteTask);
-            accumulateResponseContent += message.data;
-
-            if ('value' in lastInputElmInitExecuteTask) {
-                lastInputElmInitExecuteTask.value = accumulateResponseContent;
-            } else {
-                // Если свойства value нет (например, div), вставляем код внутрь элемента
-                lastInputElmInitExecuteTask.innerHTML = accumulateResponseContent;
-
-                // Создаём и отправляем событие 'input' (или 'change' если нужно)
-                const changeEvent = new Event('change', {
-                    bubbles: true,
-                    cancelable: true,
-                });
-
-                lastInputElmInitExecuteTask.dispatchEvent(changeEvent);
+            if (resultBlockOperation.style.display != 'block') {
+                resultBlockOperation.style.display = 'block';
             }
 
+            accumulateResponseContent += message.data;
+            resultBlockDiv.innerHTML = accumulateResponseContent;
         }
 
         if (message.type === 'task_complete') {
-            console.log("Task completed.");
             accumulateResponseContent = '';
         }
     });
+
+    function tryInsert() {
+        const resultBlockDiv = document.getElementById(uniqueIdAiSearchWidgetResultDiv);
+
+        if ('value' in lastInputElmInitExecuteTask) {
+            lastInputElmInitExecuteTask.value = resultBlockDiv.innerHTML;
+        } else {
+            // Если свойства value нет (например, div), вставляем код внутрь элемента
+            lastInputElmInitExecuteTask.innerHTML = resultBlockDiv.innerHTML;
+
+            // Создаём и отправляем событие 'input' (или 'change' если нужно)
+            const changeEvent = new Event('change', {
+                bubbles: true,
+                cancelable: true,
+            });
+
+            lastInputElmInitExecuteTask.dispatchEvent(changeEvent);
+        }
+    }
 }

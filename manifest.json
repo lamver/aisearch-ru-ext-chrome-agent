@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "AiSearch Chrome Agent",
-    "version": "1.0",
+    "version": "1.2",
     "background": {
         "service_worker": "background.js"
     },
@@ -11,7 +11,7 @@
             "https://www.googleapis.com/auth/documents"
         ]
     },
-    "description": "AiSearch Chrome Agent",
+    "description": "Автоматизируйте веб-задачи с помощью ИИ! Aisearch RU Chrome Agent — это расширение Chrome с открытым исходным кодом, которое позволяет извлекать данные, заполнять формы и многое другое.",
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
@@ -19,6 +19,9 @@
             "48": "logo_ai_search_48_48_tr.png",
             "128": "logo_ai_search_128_128_tr.png"
         }
+    },
+    "icons": {
+        "128": "logo_ai_search_128_128_tr.png"
     },
     "permissions": ["activeTab", "scripting", "tabs", "storage"],
     "content_scripts": [
