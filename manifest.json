@@ -11,7 +11,7 @@
             "https://www.googleapis.com/auth/documents"
         ]
     },
-    "description": "Автоматизируйте веб-задачи с помощью ИИ! Aisearch RU Chrome Agent — это расширение Chrome с открытым исходным кодом, которое позволяет извлекать данные, заполнять формы и многое другое.",
+    "description": "Автоматизируйте веб-задачи с помощью ИИ! Aisearch RU Chrome Agent — это расширение для быстрой и качественной работы с текстом.",
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
