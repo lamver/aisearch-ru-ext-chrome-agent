@@ -10,6 +10,78 @@ chrome.storage.sync.get([window.location.hostname], (result) => {
     initAgent();
 });
 
+function collectExternalFilesByType() {
+        const files = {
+            images: [],
+            videos: [],
+            scripts: [],
+            styles: [],
+            others: []
+        };
+
+        // Получим все элементы с внешними ресурсами
+        // Изображения - <img src="...">
+        document.querySelectorAll('img[src]').forEach(img => {
+            const url = img.src;
+            files.images.push({ name: getFileNameFromUrl(url), url });
+        });
+
+        // Видео - <video src="..."> и внутри <source src="...">
+        document.querySelectorAll('video[src]').forEach(video => {
+            const url = video.src;
+            files.videos.push({ name: getFileNameFromUrl(url), url });
+        });
+        document.querySelectorAll('video source[src]').forEach(source => {
+            const url = source.src;
+            files.videos.push({ name: getFileNameFromUrl(url), url });
+        });
+
+        // Скрипты - <script src="...">
+        document.querySelectorAll('script[src]').forEach(script => {
+            const url = script.src;
+            files.scripts.push({ name: getFileNameFromUrl(url), url });
+        });
+
+        // Стили - <link rel="stylesheet" href="...">
+        document.querySelectorAll('link[rel="stylesheet"][href]').forEach(link => {
+            const url = link.href;
+            files.styles.push({ name: getFileNameFromUrl(url), url });
+        });
+
+        // Другие внешние файлы — например, в <a href="..."> с расширениями, которые не отдали в категории выше
+        // Для этого возьмем все <a> с href отличным от текущего домена (внешние ресурсы)
+        document.querySelectorAll('a[href]').forEach(a => {
+            const url = a.href;
+            if (!url) return;
+
+            // Если url уже присутствует в предыдущих категориях — пропустим
+            if (isUrlInFiles(url, files)) return;
+
+            // Если это внешний url (протокол http(s), сторонний хост)
+            if (new URL(url).origin !== location.origin) {
+                files.others.push({ name: getFileNameFromUrl(url), url });
+            }
+        });
+
+        return files;
+
+        // Вспомогательные функции
+        function getFileNameFromUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                const pathname = urlObj.pathname;
+                const name = pathname.substring(pathname.lastIndexOf('/') + 1) || url;
+                return name;
+            } catch {
+                return url;
+            }
+        }
+
+        function isUrlInFiles(url, filesObj) {
+            return Object.values(filesObj).some(arr => arr.some(file => file.url === url));
+        }
+    }
+
 async function initAgent() {
 
     let lastInputElmInitExecuteTask= null;
@@ -165,6 +237,8 @@ async function initAgent() {
         if (!wasDragged) {
             initScenario();
         }
+
+        console.log(collectExternalFilesByType());
     });
 
     document.addEventListener('click', (event) => {
@@ -252,7 +326,7 @@ async function initAgent() {
         let highlightedText = modalScenario.shadowRoot.querySelector('.highlighted-text');
 
         if (highlightedText) {
-            highlightedText.innerHTML = selectedText;
+            highlightedText.value = selectedText;
         }
 
         if (
@@ -402,15 +476,27 @@ async function initAgent() {
 
         closeButton.classList.add('close-button');
 
+        const checkboxWithoutContext = document.createElement('input');
+        checkboxWithoutContext.className = 'checkbox-without-context';
+        checkboxWithoutContext.type = 'checkbox';
+
+        const labelWithoutContext = document.createElement('label');
+        labelWithoutContext.textContent = 'Не учитывать контекст';
+        labelWithoutContext.prepend(checkboxWithoutContext);
+
+        //document.body.appendChild(label);
+
         // 1) блок с выделенным текстом (если есть, иначе пишем "Нет выделенного текста")
-        const highlightedBlock = document.createElement('div');
+        const highlightedBlock = document.createElement('textarea');
         highlightedBlock.className = 'highlighted-text';
         highlightedBlock.textContent = selectedText || '';
-        highlightedBlock.contentEditable = true;
+        highlightedBlock.placeholder = 'По умолчанию учитывается контекст всей страницы. Чтобы сузить контекст — выделите текст на странице или вставьте нужную информацию тут.';
+        highlightedBlock.rows = 3;
+        //highlightedBlock.contentEditable = true;
 
         // 2) текстареа
         const textarea = document.createElement('textarea');
-        textarea.placeholder = 'Напишите что надо сделать...';
+        textarea.placeholder = 'Напишите, что надо сделать...';
 
         // 3) кнопка "Делай"
         const doButton = document.createElement('button');
@@ -447,6 +533,7 @@ async function initAgent() {
         modal.append(
             closeButton,
             highlightedBlock,
+            labelWithoutContext,
             textarea,
             doButton,
             exceptionsBlock,
@@ -488,10 +575,12 @@ async function initAgent() {
 
             let prompt = inputText;
 
-            if (highlightedBlock.textContent === '') {
-                prompt = pageText + "\n" + prompt;
-            } else {
-                prompt = highlightedBlock.textContent + "\n" + prompt;
+            if (!checkboxWithoutContext.checked) {
+                if (highlightedBlock.value === '') {
+                    prompt = pageText + "\n" + prompt;
+                } else {
+                    prompt = highlightedBlock.value + "\n" + prompt;
+                }
             }
 
             chrome.runtime.sendMessage({ type: "task", prompt: prompt }, response => {
