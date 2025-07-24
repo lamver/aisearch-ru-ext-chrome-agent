@@ -82,8 +82,124 @@ function collectExternalFilesByType() {
         }
     }
 
-async function initAgent() {
+// Функция рендера списка файлов по типу
+function renderFilesList(filesList, type) {
+    const modalScenario = document.getElementById('my-unique-modal-v1');
+    const container = modalScenario.shadowRoot.getElementById('fileListContainer');
+    container.innerHTML = '';
 
+    let filesToShow = [];
+    if (type === 'all') {
+        // если понадобится - показать все сразу
+        filesToShow = Object.values(filesList).flat();
+    } else {
+        filesToShow = filesList[type] || [];
+    }
+
+    if (filesToShow.length === 0) {
+        container.textContent = 'Нет файлов данного типа.';
+        return;
+    }
+
+    const ul = document.createElement('ul');
+    ul.style.listStyle = 'none';
+    ul.style.padding = '0';
+
+    filesToShow.forEach(file => {
+        const li = document.createElement('li');
+        li.style.marginBottom = '10px';
+        li.style.display = 'flex';
+        li.style.alignItems = 'center';
+        li.style.gap = '10px';
+
+        // Превью (если возможно)
+        const preview = document.createElement('div');
+        preview.style.width = '50px';
+        preview.style.height = '50px';
+        preview.style.flexShrink = '0';
+
+        if (type === 'images') {
+            const img = document.createElement('img');
+            img.src = file.url;
+            img.alt = file.name;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            preview.appendChild(img);
+        } else if (type === 'videos') {
+            const video = document.createElement('video');
+            video.src = file.url;
+            video.controls = false;
+            video.muted = true;
+            video.style.maxWidth = '100%';
+            video.style.maxHeight = '100%';
+            preview.appendChild(video);
+        } else {
+            const ext = file.name.split('.').pop()?.toLowerCase() || '';
+            // Для скриптов и стилей можно добавить иконки или текст
+            let icon = document.createElement('span');
+            icon.style.fontSize = '24px';
+            icon.style.lineHeight = '50px';
+            switch (ext) {
+                case 'js':
+                    icon.textContent = '📜';
+                    break;
+                case 'css':
+                    icon.textContent = '🎨';
+                    break;
+                default:
+                    icon.textContent = '📄';
+            }
+            preview.appendChild(icon);
+        }
+
+        li.appendChild(preview);
+
+        // Название файла с ссылкой
+        const link = document.createElement('a');
+        link.href = file.url;
+        link.textContent = file.name;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.download = file.name; // Подсказка для скачивания
+        link.style.flexGrow = '1';
+        link.style.wordBreak = 'break-all';
+
+        li.appendChild(link);
+
+        // Кнопка скачать (с загрузкой по клику)
+        const downloadBtn = document.createElement('button');
+        downloadBtn.textContent = 'Скачать';
+        downloadBtn.onclick = (e) => {
+            e.preventDefault();
+            downloadFile(file.url, file.name);
+        };
+        li.appendChild(downloadBtn);
+
+        ul.appendChild(li);
+    });
+
+    container.appendChild(ul);
+}
+
+// Функция скачивания файла по ссылке
+function downloadFile(url, filename) {
+    fetch(url, {mode: 'cors'})
+        .then(resp => resp.blob())
+        .then(blob => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        })
+        .catch(() => alert('Не удалось скачать файл.'));
+}
+
+async function initAgent() {
+    const imageUrlLogo40X40 = chrome.runtime.getURL('images/logo_ai_search_40_40.png');
+    console.log(imageUrlLogo40X40);
     let lastInputElmInitExecuteTask= null;
     let lastSelectedEditableElement = null;
     let modalScenario = null;
@@ -109,23 +225,45 @@ async function initAgent() {
     const storageKey = `aiSearch-position-${window.location.hostname}`;
     chrome.storage.sync.get([storageKey], (posResult) => {
         const pos = posResult[storageKey];
+        let x, y;
+
         if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
-            container.style.left = pos.x + 'px';
-            container.style.top = pos.y + 'px';
-            originalPosition.x = pos.x;
-            originalPosition.y = pos.y;
+            x = pos.x;
+            y = pos.y;
         } else {
-            // Изначально правый нижний угол: bottom:10px, right:10px -
-            // но с position fixed лучше использовать left и top
-            // Чтобы не влиять на flow, установим initial position — правый низ
-            // Вычислим с window.innerWidth/Height
-            const defaultX = window.innerWidth - 40; // немного отступить от края
-            const defaultY = window.innerHeight - 40;
-            container.style.left = defaultX + 'px';
-            container.style.top = defaultY + 'px';
-            originalPosition.x = defaultX;
-            originalPosition.y = defaultY;
+            // Изначально правый нижний угол
+            x = window.innerWidth - 40; // немного отступить от края
+            y = window.innerHeight - 40;
         }
+
+        // Получаем размеры контейнера, чтобы проверить видимость
+        const rect = container.getBoundingClientRect();
+        const containerWidth = rect.width;
+        const containerHeight = rect.height;
+
+        // Корректируем координаты, чтобы контейнер не выходил за зону видимости окна
+        // Минимальное значение 0 (чтобы не выйти вверх и влево)
+        // Максимальное: ширина/высота окна минус размер контейнера и небольшой отступ (10px)
+        const padding = 10;
+
+        if (x < padding) x = padding;
+        if (y < padding) y = padding;
+
+        if (x + containerWidth + padding > window.innerWidth) {
+            x = window.innerWidth - containerWidth - padding;
+        }
+
+        if (y + containerHeight + padding > window.innerHeight) {
+            y = window.innerHeight - containerHeight - padding;
+        }
+
+        // Применяем позицию к контейнеру
+        container.style.left = x + 'px';
+        container.style.top = y + 'px';
+
+        // Обновляем оригинальную позицию
+        originalPosition.x = x;
+        originalPosition.y = y;
     });
 
     // Создаем кнопку
@@ -137,13 +275,12 @@ async function initAgent() {
     btn.style.width = '40px';
     btn.style.height = '40px';
     btn.style.border = 'none';
-    btn.style.backgroundImage = 'url(https://aisearch.ru/images/logo/logo_ai_search_40_40.png)';
+    btn.style.backgroundImage = `url("${imageUrlLogo40X40}")`;
     btn.style.backgroundSize = 'contain';
     btn.style.backgroundRepeat = 'no-repeat';
     btn.style.backgroundPosition = 'center';
     btn.style.cursor = 'grab';
     btn.style.outline = 'none';
-    btn.style.backgroundImage = "url('https://aisearch.ru/images/logo/logo_ai_search_40_40.png')";
     btn.style.padding = '0px 0px';
     btn.style.color = 'white';
     btn.style.backgroundColor = 'white';
@@ -237,8 +374,6 @@ async function initAgent() {
         if (!wasDragged) {
             initScenario();
         }
-
-        console.log(collectExternalFilesByType());
     });
 
     document.addEventListener('click', (event) => {
@@ -359,7 +494,6 @@ async function initAgent() {
             left: '0',
             width: '100vw',
             height: '100vh',
-            //backgroundColor: 'rgba(0,0,0,0.5)',
             backgroundColor: 'transparent',
             display: 'flex',
             justifyContent: 'center',
@@ -392,7 +526,6 @@ async function initAgent() {
             gap: 10px;
         }
         .highlighted-text {
-            /*background-color: #ffffcc;*/
             border: 1px solid #cccc00;
             padding: 10px;
             min-height: 40px;
@@ -401,7 +534,7 @@ async function initAgent() {
             user-select: text;
             color: black;
             max-height: 300px;
-            overflow-Y: auto;
+            overflow-y: auto;
         }
         textarea {
             width: 100%;
@@ -448,19 +581,54 @@ async function initAgent() {
             color: black;
             border: 1px solid #006400;
             max-height: 300px;
-            overflow-Y: auto;
-            display:none;
+            overflow-y: auto;
+            display: none;
         }
-        
         button.close-button {
             position: absolute;
             top: -2px;
             right: -2px;
-            background: 
-            transparent;
+            background: transparent;
             padding: 0;
             border: none;
             color: black;
+        }
+        /* Вкладки */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 6px 6px 0 0;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background-color: #eee;
+            font-weight: 600;
+        }
+        .tab.active {
+            background-color: white;
+            border-color: #ccc #ccc white;
+            color: black;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-files {
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-style: italic;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
         }
     `;
 
@@ -469,10 +637,10 @@ async function initAgent() {
         modal.className = 'modal';
 
         const closeButton = document.createElement('button');
-        closeButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">\n' +
-            '  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>\n' +
-            '  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>\n' +
-            '</svg>';
+        closeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
+  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+</svg>`;
 
         closeButton.classList.add('close-button');
 
@@ -484,7 +652,27 @@ async function initAgent() {
         labelWithoutContext.textContent = 'Не учитывать контекст';
         labelWithoutContext.prepend(checkboxWithoutContext);
 
-        //document.body.appendChild(label);
+        // Создаем контейнер для вкладок
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'tabs';
+
+        const tabAISearch = document.createElement('div');
+        tabAISearch.className = 'tab active';
+        tabAISearch.textContent = 'Контент';
+
+        const tabFiles = document.createElement('div');
+        tabFiles.className = 'tab';
+        tabFiles.textContent = 'Файлы';
+
+        tabsContainer.append(tabAISearch, tabFiles);
+
+        // Контейнер для контента вкладок
+        const contentAISearch = document.createElement('div');
+        contentAISearch.className = 'tab-content active';
+
+        const contentFiles = document.createElement('div');
+        contentFiles.className = 'tab-content';
+        contentFiles.innerHTML = `<div class="tab-files">Пусто</div>`;
 
         // 1) блок с выделенным текстом (если есть, иначе пишем "Нет выделенного текста")
         const highlightedBlock = document.createElement('textarea');
@@ -492,7 +680,6 @@ async function initAgent() {
         highlightedBlock.textContent = selectedText || '';
         highlightedBlock.placeholder = 'По умолчанию учитывается контекст всей страницы. Чтобы сузить контекст — выделите текст на странице или вставьте нужную информацию тут.';
         highlightedBlock.rows = 3;
-        //highlightedBlock.contentEditable = true;
 
         // 2) текстареа
         const textarea = document.createElement('textarea');
@@ -529,9 +716,8 @@ async function initAgent() {
 
         btnGroup.append(pasteButton, copyButton);
 
-        // Добавляем все в modal
-        modal.append(
-            closeButton,
+        // Добавляем все элементы айсечарча в его вкладку контента
+        contentAISearch.append(
             highlightedBlock,
             labelWithoutContext,
             textarea,
@@ -539,6 +725,14 @@ async function initAgent() {
             exceptionsBlock,
             resultBlock,
             btnGroup
+        );
+
+        // Добавляем вкладки и их контент в модальное окно
+        modal.append(
+            closeButton,
+            tabsContainer,
+            contentAISearch,
+            contentFiles
         );
 
         // Добавляем стиль и модальное окно в shadow DOM
@@ -549,11 +743,60 @@ async function initAgent() {
 
         modalScenario = document.getElementById('my-unique-modal-v1');
 
-        // Функция закрытия модального окна при клике вне него
-        closeButton.addEventListener('click', (ev) => {
-            /*if (ev.target === container) {
-                container.remove();
-            }*/
+        // Функция переключения вкладок
+        function switchTab(tab) {
+            // отключаем активные классы у вкладок
+            tabsContainer.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            modal.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            tab.classList.add('active');
+
+            if (tab === tabAISearch) {
+                contentAISearch.classList.add('active');
+            } else if (tab === tabFiles) {
+                let filesList = collectExternalFilesByType();
+                contentFiles.innerHTML = ''; // очищаем
+
+                // Создаем фильтр по типам файлов
+                const fileTypes = ['images', 'videos', 'scripts', 'styles', 'others'];
+                const filtersContainer = document.createElement('div');
+                filtersContainer.style.marginBottom = '10px';
+
+                fileTypes.forEach(type => {
+                    const btn = document.createElement('button');
+                    btn.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+                    btn.dataset.type = type;
+                    btn.style.marginRight = '5px';
+                    btn.onclick = () => {
+                        renderFilesList(filesList, btn.dataset.type);
+                        // Обновить активный класс у кнопок
+                        filtersContainer.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                    };
+                    filtersContainer.appendChild(btn);
+                });
+                contentFiles.appendChild(filtersContainer);
+
+                // Список файлов
+                const listContainer = document.createElement('div');
+                listContainer.id = 'fileListContainer';
+                listContainer.style.maxHeight = '400px';
+                listContainer.style.overflowY = 'auto';
+                contentFiles.appendChild(listContainer);
+
+                // По умолчанию показываем все типы (или первый)
+                filtersContainer.querySelector('button').click();
+
+                contentFiles.classList.add('active');
+            }
+        }
+
+        // Обработчики кликов на вкладках
+        tabAISearch.addEventListener('click', () => switchTab(tabAISearch));
+        tabFiles.addEventListener('click', () => switchTab(tabFiles));
+
+        // Обработчик закрытия модального окна
+        closeButton.addEventListener('click', () => {
             container.style.visibility = 'hidden';
         });
 
@@ -565,11 +808,9 @@ async function initAgent() {
 
             const pageText = document.body.innerText;
 
-            // Получаем HTML код страницы и выводим в консоль
-            const pageHTML = document.documentElement.outerHTML;
-
             if (!inputText) {
                 resultBlock.textContent = 'Пожалуйста, введите запрос.';
+                resultBlock.style.display = 'block';
                 return;
             }
 
@@ -592,15 +833,11 @@ async function initAgent() {
 
         // Обработчик вставки
         pasteButton.addEventListener('click', async () => {
-           // alert();
-
             if ('value' in lastInputElmInitExecuteTask) {
                 lastInputElmInitExecuteTask.value = resultBlock.innerText;
             } else {
-                // Если свойства value нет (например, div), вставляем код внутрь элемента
                 lastInputElmInitExecuteTask.innerHTML = resultBlock.innerText;
 
-                // Создаём и отправляем событие 'input' (или 'change' если нужно)
                 const changeEvent = new Event('change', {
                     bubbles: true,
                     cancelable: true,
@@ -625,19 +862,14 @@ async function initAgent() {
 
         textarea.addEventListener('focus', async () => {
             container.style.pointerEvents = 'auto';
-            //modal.style.pointerEvents = 'auto';
         });
 
         textarea.addEventListener('blur', async () => {
             container.style.pointerEvents = 'none';
-            //modal.style.pointerEvents = 'auto';
         });
 
         textarea.addEventListener('keydown', (event) => {
-            // Блокируем всплытие и действие всех горячих клавиш
             event.stopPropagation();
-            // Если вы хотите полностью заблокировать ввод при нажатии клавиш — раскомментируйте следующую строку
-            // event.preventDefault();
         });
     }
 

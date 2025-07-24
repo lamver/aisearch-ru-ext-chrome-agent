@@ -29,5 +29,11 @@
             "matches": ["<all_urls>", "https://docs.google.com/document/d/*"],
             "js": ["content.js"]
         }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["images/logo_ai_search_40_40.png"],
+            "matches": ["<all_urls>"]
+        }
     ]
 }
