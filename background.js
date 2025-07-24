@@ -20,6 +20,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                chrome.tabs.sendMessage(sender.tab.id, { type: "task_error", message: errorData.message });
                 throw new Error(`${errorData.message}`);
             }
 
